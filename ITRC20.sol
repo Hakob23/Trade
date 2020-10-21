@@ -1,3 +1,4 @@
+pragma solidity 0.6.12;
 interface ITRC20 {
     
   function transfer(address to, uint256 value) external returns (bool);
