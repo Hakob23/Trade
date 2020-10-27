@@ -198,7 +198,7 @@ contract Trading is Ownable{
             // ITRC20(fuel).transfer(_IdToAddress(i+1), _tradeVolumes[i]/allTradeVolumes * weekToRewardValues[week - 1]);
             _tradeVolumes[i] = 0;
         }
-        initWeeks++;
+        initWeeks+= 1 weeks;
         allTradeVolumes = 0;
     }
     
