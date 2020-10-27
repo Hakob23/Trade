@@ -4,7 +4,7 @@ pragma solidity 0.6.12;
 import "./Ownable.sol";
 import "./IJustSwapExchange.sol";
 import "./IJustSwapFactory.sol";
-import "./ITRC20.sol";
+import "./TRC20.sol";
 
 
 
@@ -13,19 +13,17 @@ contract Trading is Ownable{
     IJustSwapFactory             public  factory;
     IJustSwapExchange            public  exchangeFuel;
     address                      public  fuel;
+    uint[10]                     public  weekToRewardValues = [42000, 21000, 10500, 5250, 2625, 1715, 1715, 1715, 1715, 1715];
+    mapping(address => uint256)  public _addressToId;
+    mapping(uint256  => address) public _IdToAddress;
+    uint256[]                    public _tradeVolumes;
+    uint                         public  initTime;
     
-    mapping(address => uint256)  private _addressToId;
-    mapping(uint256  => address) private _IdToAddress;
-    uint256[]                    private _tradeVolumes;
-    uint                         private _rewardValue;
-    bool                         private _unchangeable;
-    
-    
-    constructor(IJustSwapFactory _factory, address _fuel, uint initRewardValue) public onlyOwner {
+    constructor(IJustSwapFactory _factory, address _fuel, uint timer) public onlyOwner {
         factory = _factory;
         exchangeFuel = IJustSwapExchange(factory.createExchange(_fuel));
         fuel = _fuel;
-        _rewardValue = initRewardValue;
+        initTime = now + timer ;
     }
     
     // Returns Amount of fuel purchased
@@ -184,34 +182,21 @@ contract Trading is Ownable{
     }
     
     
-    
-    //ADMIN FUNCTIONS
-    
     // Send rewards and nulling the trade volumes after the reward distribution
     function sendRewards() public onlyOwner {
+        require(now - initTime >= 1 weeks);
+        require(now - initTime < 11 weeks);
+        uint week = (now - initTime) / 1 weeks;
         uint allTradeVolumes = 0;
         for(uint16 i = 0; i < _tradeVolumes.length; i++) {
             allTradeVolumes += _tradeVolumes[i];
         }
         for(uint16 i = 0; i < _tradeVolumes.length; i++) {
-            ITRC20(fuel).transfer(_IdToAddress(i+1), _tradeVolumes[i]/allTradeVolumes * _rewardValue);
+            ITRC20(fuel).transfer(_IdToAddress(i+1), _tradeVolumes[i]/allTradeVolumes * weekToRewardValues[week - 1]);
             _tradeVolumes[i] = 0;
         }
         allTradeVolumes = 0;
     }
     
-    
-    //After this is called, no changes can be made
-    function makeUnchangeable() public onlyOwner {
-        _unchangeable = true;
-    }
-
-    //Update reward value after a week, can't be called if makeUnchangeable() was called
-    function updateRewardValue(uint input) public onlyOwner {
-        require(!_unchangeable, "makeUnchangeable() function was already called");
-        _rewardValue = input;
-    }
-    
-    //ADMIN FUNCTIONS
     
 }
