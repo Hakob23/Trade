@@ -10,7 +10,7 @@ import "./TRC20.sol";
 
 contract Trading is Ownable{
     
-    uint                         public initWeeks = 1 weeks;
+    uint                         public  passedWeeks = 1 weeks;
     uint[10]                     public  weekToRewardValues = [42000, 21000, 10500, 5250, 2625, 1715, 1715, 1715, 1715, 1715];
     
     IJustSwapFactory             public  factory;
@@ -187,7 +187,7 @@ contract Trading is Ownable{
     
     // Send rewards and nulling the trade volumes after the reward distribution
     function sendRewards() public onlyOwner {
-        require(now - initTime >= initWeeks);
+        require(now - initTime >= passedWeeks);
         require(now - initTime < 11 weeks);
         uint week = (now - initTime) / 1 weeks;
         uint allTradeVolumes = 0;
@@ -198,7 +198,7 @@ contract Trading is Ownable{
             // ITRC20(fuel).transfer(_IdToAddress(i+1), _tradeVolumes[i]/allTradeVolumes * weekToRewardValues[week - 1]);
             _tradeVolumes[i] = 0;
         }
-        initWeeks+= 1 weeks;
+        passedWeeks+= 1 weeks;
         allTradeVolumes = 0;
     }
     
