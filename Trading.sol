@@ -8,7 +8,7 @@ import "./TRC20.sol";
 
 
 
-contract Trading is Ownable{
+contract Trading {
     
     IJustSwapFactory             public  factory;
     IJustSwapExchange            public  exchangeFuel;
@@ -19,7 +19,7 @@ contract Trading is Ownable{
     uint256[]                    public _tradeVolumes;
     uint                         public  initTime;
     
-    constructor(IJustSwapFactory _factory, address _fuel, uint timer) public onlyOwner {
+    constructor(IJustSwapFactory _factory, address _fuel, uint timer) public {
         factory = _factory;
         exchangeFuel = IJustSwapExchange(factory.createExchange(_fuel));
         fuel = _fuel;
@@ -192,7 +192,8 @@ contract Trading is Ownable{
             allTradeVolumes += _tradeVolumes[i];
         }
         for(uint16 i = 0; i < _tradeVolumes.length; i++) {
-            ITRC20(fuel).transfer(_IdToAddress(i+1), _tradeVolumes[i]/allTradeVolumes * weekToRewardValues[week - 1]);
+            // Throws an error, Trying to solve
+            //ITRC20(fuel).transfer(_IdToAddress(i+1), _tradeVolumes[i]/allTradeVolumes * weekToRewardValues[week - 1]);
             _tradeVolumes[i] = 0;
         }
         allTradeVolumes = 0;
