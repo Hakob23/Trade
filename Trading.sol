@@ -8,18 +8,21 @@ import "./TRC20.sol";
 
 
 
-contract Trading {
+contract Trading is Ownable{
+    
+    uint                         public initWeeks = 1 weeks;
+    uint[10]                     public  weekToRewardValues = [42000, 21000, 10500, 5250, 2625, 1715, 1715, 1715, 1715, 1715];
     
     IJustSwapFactory             public  factory;
     IJustSwapExchange            public  exchangeFuel;
     address                      public  fuel;
-    uint[10]                     public  weekToRewardValues = [42000, 21000, 10500, 5250, 2625, 1715, 1715, 1715, 1715, 1715];
     mapping(address => uint256)  public _addressToId;
     mapping(uint256  => address) public _IdToAddress;
     uint256[]                    public _tradeVolumes;
     uint                         public  initTime;
+
     
-    constructor(IJustSwapFactory _factory, address _fuel, uint timer) public {
+    constructor(IJustSwapFactory _factory, address _fuel, uint timer) public onlyOwner {
         factory = _factory;
         exchangeFuel = IJustSwapExchange(factory.createExchange(_fuel));
         fuel = _fuel;
@@ -184,7 +187,7 @@ contract Trading {
     
     // Send rewards and nulling the trade volumes after the reward distribution
     function sendRewards() public onlyOwner {
-        require(now - initTime >= 1 weeks);
+        require(now - initTime >= initWeeks);
         require(now - initTime < 11 weeks);
         uint week = (now - initTime) / 1 weeks;
         uint allTradeVolumes = 0;
@@ -192,10 +195,10 @@ contract Trading {
             allTradeVolumes += _tradeVolumes[i];
         }
         for(uint16 i = 0; i < _tradeVolumes.length; i++) {
-            // Throws an error, Trying to solve
-            //ITRC20(fuel).transfer(_IdToAddress(i+1), _tradeVolumes[i]/allTradeVolumes * weekToRewardValues[week - 1]);
+            // ITRC20(fuel).transfer(_IdToAddress(i+1), _tradeVolumes[i]/allTradeVolumes * weekToRewardValues[week - 1]);
             _tradeVolumes[i] = 0;
         }
+        initWeeks++;
         allTradeVolumes = 0;
     }
     
