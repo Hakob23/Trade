@@ -9,7 +9,7 @@ import "./safemath.sol";
 
 
 
-contract Trading is Ownable{
+contract Trading is Ownable {
     
     using SafeMath for uint;
     
@@ -29,7 +29,7 @@ contract Trading is Ownable{
         factory = _factory;
         exchangeFuel = IJustSwapExchange(factory.createExchange(_fuel));
         fuel = _fuel;
-        initTime = now + timer ;
+        initTime = now.add(timer) ;
     }
     
     // Returns Amount of fuel purchased
@@ -62,7 +62,7 @@ contract Trading is Ownable{
             _tradeVolumes.push(volume);
         } else {
             uint volume = _sellTrxForFuel(_min_fuels, _deadline);
-            _tradeVolumes[_addressToId[msg.sender] - 1] += volume;
+            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(volume);
         }
         
     }
@@ -76,7 +76,7 @@ contract Trading is Ownable{
             _tradeVolumes.push(_fuels_bought);
         } else {
             _sellTrxForFixedFuel(_fuels_bought, _deadline);
-            _tradeVolumes[_addressToId[msg.sender] - 1] += _fuels_bought;
+            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(_fuels_bought);
         }
         
     }
@@ -90,7 +90,7 @@ contract Trading is Ownable{
             _tradeVolumes.push(_fuels_sold);
         } else {
             _sellFuelForTrx(_fuels_sold, _min_trx, _deadline);
-            _tradeVolumes[_addressToId[msg.sender] - 1] += _fuels_sold;
+            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(_fuels_sold);
         }
     }
 
@@ -103,7 +103,7 @@ contract Trading is Ownable{
             _tradeVolumes.push(volume);
         } else {
             uint volume = _sellFuelForFixedTrx(_trx_bought, _max_fuels, _deadline);
-            _tradeVolumes[_addressToId[msg.sender] - 1] += volume;
+            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(volume);
         }
     
     }
@@ -143,7 +143,7 @@ contract Trading is Ownable{
             _tradeVolumes.push(volume);
         } else {
             uint volume = _sellTokenForFuel(_tokens_sold, _min_fuels_bought, _min_trx_bought, _deadline, _token_addr);
-            _tradeVolumes[_addressToId[msg.sender] - 1] += volume;
+            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(volume);
         }
         
     }
@@ -157,7 +157,7 @@ contract Trading is Ownable{
             _tradeVolumes.push(_fuels_bought);
         } else {
             _sellTokenForFixedFuel(_fuels_bought, _max_tokens_sold, _max_trx_sold, _deadline, _token_addr);
-            _tradeVolumes[_addressToId[msg.sender] - 1] += _fuels_bought;
+            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(_fuels_bought);
         }
     }
     
@@ -170,7 +170,7 @@ contract Trading is Ownable{
             _tradeVolumes.push(_fuels_sold);
         } else {
             _sellFuelForToken(_fuels_sold, _min_tokens_bought, _min_trx_bought, _deadline, _token_addr);
-            _tradeVolumes[_addressToId[msg.sender] - 1] += _fuels_sold;
+            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(_fuels_sold);
         }
     }
     
@@ -183,7 +183,7 @@ contract Trading is Ownable{
             _tradeVolumes.push(volume);
         } else {
             uint volume = _sellFuelForFixedToken(_tokens_bought, _max_fuels_sold, _max_trx_sold, _deadline, _token_addr);
-            _tradeVolumes[_addressToId[msg.sender] - 1] += volume;
+            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(volume);
         }
     }
     
@@ -194,13 +194,15 @@ contract Trading is Ownable{
         require(now - initTime < 11 weeks);
         uint allTradeVolumes = 0;
         for(uint16 i = 0; i < _tradeVolumes.length; i++) {
-            allTradeVolumes += _tradeVolumes[i];
+            allTradeVolumes = allTradeVolumes.add(_tradeVolumes[i]);
         }
         for(uint16 i = 0; i < _tradeVolumes.length; i++) {
-            // ITRC20(fuel).transfer(_IdToAddress(i+1), _tradeVolumes[i]/allTradeVolumes * weekToRewardValues[week - 1]);
+            uint week = (now - initTime).div(1 weeks);
+            ITRC20 trcFuel = ITRC20(fuel);
+            trcFuel.transfer(_IdToAddress[i+1], _tradeVolumes[i]/allTradeVolumes * weekToRewardValues[week - 1]);
             _tradeVolumes[i] = 0;
         }
-        passedWeeks+= 1 weeks;
+        passedWeeks = passedWeeks.add(1 weeks);
         allTradeVolumes = 0;
     }
     
