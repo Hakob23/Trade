@@ -19,36 +19,41 @@ contract Trading is Ownable {
     IJustSwapFactory             public  factory;
     IJustSwapExchange            public  exchangeFuel;
     address                      public  fuel;
+    uint                         public  initTime;
+     
     mapping(address => uint)     public _addressToId;
     mapping(uint  => address)    public _IdToAddress;
     uint[]                       public _tradeVolumes;
-    uint                         public  initTime;
+    
 
     
-    constructor(IJustSwapFactory _factory, address _fuel, uint timer) public onlyOwner {
-        factory = _factory;
-        exchangeFuel = IJustSwapExchange(factory.createExchange(_fuel));
+    constructor(address _fuel, uint timer) public {
+        factory = IJustSwapFactory(msg.sender);
         fuel = _fuel;
         initTime = now.add(timer) ;
     }
     
     // Returns Amount of fuel purchased
     function _sellTrxForFuel(uint _min_fuels, uint _deadline) private returns (uint) {
+        exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
         return exchangeFuel.trxToTokenSwapInput(_min_fuels, _deadline);
     }
     
     // Returns amount of TRX sold
     function _sellTrxForFixedFuel(uint _fuels_bought, uint _deadline) private returns (uint) {
+        exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
         return exchangeFuel.trxToTokenSwapOutput(_fuels_bought, _deadline);
     }
     
     // Returns amount of TRX purchased
     function _sellFuelForTrx(uint _fuels_sold, uint _min_trx, uint _deadline) private returns (uint) {
+        exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
         return exchangeFuel.tokenToTrxSwapInput(_fuels_sold, _min_trx, _deadline);
     }
     
     // Returns amount of fuel sold
     function _sellFuelForFixedTrx(uint _trx_bought, uint _max_fuels, uint _deadline) private returns (uint) {
+        exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
         return exchangeFuel.tokenToTrxSwapOutput(_trx_bought, _max_fuels, _deadline);
     }
   
@@ -125,11 +130,13 @@ contract Trading is Ownable {
     
     // Returns amount of token purchased
     function _sellFuelForToken(uint _fuels_sold, uint _min_tokens_bought, uint _min_trx_bought, uint _deadline, address _token_addr) private returns (uint) {
+        exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
         return exchangeFuel.tokenToTokenSwapInput(_fuels_sold, _min_tokens_bought, _min_trx_bought, _deadline, _token_addr);
     }
     
     // Returns amount of fuel sold
     function _sellFuelForFixedToken(uint _tokens_bought, uint _max_fuels_sold, uint _max_trx_sold, uint _deadline, address _token_addr) private returns (uint) {
+        exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
         return exchangeFuel.tokenToTokenSwapOutput(_tokens_bought, _max_fuels_sold, _max_trx_sold, _deadline, _token_addr);
     }
     
