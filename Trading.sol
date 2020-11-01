@@ -172,7 +172,7 @@ contract Trading is Ownable {
     function tradeFuelForToken(uint _fuels_sold, uint _min_tokens_bought, uint _min_trx_bought, uint _deadline, address _token_addr) public {
         if(_addressToId[msg.sender] == 0) {
              _sellFuelForToken(_fuels_sold, _min_tokens_bought, _min_trx_bought, _deadline, _token_addr);
-            _addressToId[msg.sender] = _tradeVolumes.length + 1;
+            _addressToId[msg.sender] = _tradeVolumes.length.add(1);
             _IdToAddress[_tradeVolumes.length.add(1)] = msg.sender;
             _tradeVolumes.push(_fuels_sold);
         } else {
@@ -197,16 +197,16 @@ contract Trading is Ownable {
     
     // Send rewards and nulling the trade volumes after the reward distribution
     function sendRewards() public {
-        require(now - initTime >= passedWeeks);
-        require(now - initTime < 11 weeks);
+        require(now.sub(initTime) >= passedWeeks);
+        require(now.sub(initTime) < 11 weeks);
         uint allTradeVolumes = 0;
         for(uint16 i = 0; i < _tradeVolumes.length; i++) {
             allTradeVolumes = allTradeVolumes.add(_tradeVolumes[i]);
         }
         for(uint16 i = 0; i < _tradeVolumes.length; i++) {
-            uint week = (now - initTime).div(1 weeks);
+            uint week = (now.sub(initTime)).div(1 weeks);
             ITRC20 trcFuel = ITRC20(fuel);
-            trcFuel.transfer(_IdToAddress[i+1], _tradeVolumes[i]/allTradeVolumes * weekToRewardValues[week.sub(1)]);
+            trcFuel.transfer(_IdToAddress[i+1], _tradeVolumes[i].div(allTradeVolumes).mul(weekToRewardValues[week.sub(1)]));
             _tradeVolumes[i] = 0;
         }
         passedWeeks = passedWeeks.add(1 weeks);
