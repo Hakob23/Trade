@@ -61,13 +61,13 @@ contract Trading is Ownable {
     // Trades fixed amount of TRX for fuel
     function tradeTrxForFuel(uint _min_fuels, uint _deadline) public {
         if(_addressToId[msg.sender] == 0) {
-            _addressToId[msg.sender] = _tradeVolumes.length + 1;
-            _IdToAddress[_tradeVolumes.length + 1] = msg.sender;
+            _addressToId[msg.sender] = _tradeVolumes.length.add(1);
+            _IdToAddress[_tradeVolumes.length.add(1)] = msg.sender;
             uint volume = _sellTrxForFuel(_min_fuels, _deadline);
             _tradeVolumes.push(volume);
         } else {
             uint volume = _sellTrxForFuel(_min_fuels, _deadline);
-            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(volume);
+            _tradeVolumes[_addressToId[msg.sender].sub(1)] = _tradeVolumes[_addressToId[msg.sender].sub(1)].add(volume);
         }
         
     }
@@ -75,13 +75,13 @@ contract Trading is Ownable {
     // Trades TRX for fixed amount of fuel
     function tradeTrxForFixedFuel(uint _fuels_bought, uint _deadline) public {
         if(_addressToId[msg.sender] == 0) {
-            _addressToId[msg.sender] = _tradeVolumes.length + 1;
-            _IdToAddress[_tradeVolumes.length + 1] = msg.sender;
+            _addressToId[msg.sender] = _tradeVolumes.length.add(1);
+            _IdToAddress[_tradeVolumes.length.add(1)] = msg.sender;
             _sellTrxForFixedFuel(_fuels_bought, _deadline);
             _tradeVolumes.push(_fuels_bought);
         } else {
             _sellTrxForFixedFuel(_fuels_bought, _deadline);
-            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(_fuels_bought);
+            _tradeVolumes[_addressToId[msg.sender].sub(1)] = _tradeVolumes[_addressToId[msg.sender].sub(1)].add(_fuels_bought);
         }
         
     }
@@ -89,26 +89,26 @@ contract Trading is Ownable {
     // Trades fixed amount of fuel for TRX
     function tradeFuelForTrx(uint _fuels_sold, uint _min_trx, uint _deadline) public {
         if(_addressToId[msg.sender] == 0) {
-            _addressToId[msg.sender] = _tradeVolumes.length + 1;
-            _IdToAddress[_tradeVolumes.length + 1] = msg.sender;
+            _addressToId[msg.sender] = _tradeVolumes.length.add(1);
+            _IdToAddress[_tradeVolumes.length.add(1)] = msg.sender;
             _sellFuelForTrx(_fuels_sold, _min_trx, _deadline);
             _tradeVolumes.push(_fuels_sold);
         } else {
             _sellFuelForTrx(_fuels_sold, _min_trx, _deadline);
-            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(_fuels_sold);
+            _tradeVolumes[_addressToId[msg.sender].sub(1)] = _tradeVolumes[_addressToId[msg.sender].sub(1)].add(_fuels_sold);
         }
     }
 
     // Trades fuel for fixed amount of TRX
     function tradeFuelForFixedTrx(uint _trx_bought, uint _max_fuels, uint _deadline) public {
         if(_addressToId[msg.sender] == 0) {
-            _addressToId[msg.sender] = _tradeVolumes.length + 1;
-            _IdToAddress[_tradeVolumes.length + 1] = msg.sender;
+            _addressToId[msg.sender] = _tradeVolumes.length.add(1);
+            _IdToAddress[_tradeVolumes.length.add(1)] = msg.sender;
             uint volume = _sellFuelForFixedTrx(_trx_bought, _max_fuels, _deadline);
             _tradeVolumes.push(volume);
         } else {
             uint volume = _sellFuelForFixedTrx(_trx_bought, _max_fuels, _deadline);
-            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(volume);
+            _tradeVolumes[_addressToId[msg.sender].sub(1)] = _tradeVolumes[_addressToId[msg.sender].sub(1)].add(volume);
         }
     
     }
@@ -144,13 +144,13 @@ contract Trading is Ownable {
     // Trades a fixed amount of given token for fuel
     function tradeTokenForFuel(uint _tokens_sold, uint _min_fuels_bought, uint _min_trx_bought, uint _deadline, address _token_addr) public  {
          if(_addressToId[msg.sender] == 0) {
-            _addressToId[msg.sender] = _tradeVolumes.length + 1;
-            _IdToAddress[_tradeVolumes.length + 1] = msg.sender;
+            _addressToId[msg.sender] = _tradeVolumes.length.add(1);
+            _IdToAddress[_tradeVolumes.length.add(1)] = msg.sender;
             uint volume = _sellTokenForFuel(_tokens_sold, _min_fuels_bought, _min_trx_bought, _deadline, _token_addr);
             _tradeVolumes.push(volume);
         } else {
             uint volume = _sellTokenForFuel(_tokens_sold, _min_fuels_bought, _min_trx_bought, _deadline, _token_addr);
-            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(volume);
+            _tradeVolumes[_addressToId[msg.sender].sub(1)] = _tradeVolumes[_addressToId[msg.sender].sub(1)].add(volume);
         }
         
     }
@@ -159,12 +159,12 @@ contract Trading is Ownable {
     function tradeTokenForFixedFuel(uint _fuels_bought, uint _max_tokens_sold, uint _max_trx_sold, uint _deadline, address _token_addr) public {
          if(_addressToId[msg.sender] == 0) {
              _sellTokenForFixedFuel(_fuels_bought, _max_tokens_sold, _max_trx_sold, _deadline, _token_addr);
-            _addressToId[msg.sender] = _tradeVolumes.length + 1;
-            _IdToAddress[_tradeVolumes.length + 1] = msg.sender;
+            _addressToId[msg.sender] = _tradeVolumes.length.add(1);
+            _IdToAddress[_tradeVolumes.length.add(1)] = msg.sender;
             _tradeVolumes.push(_fuels_bought);
         } else {
             _sellTokenForFixedFuel(_fuels_bought, _max_tokens_sold, _max_trx_sold, _deadline, _token_addr);
-            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(_fuels_bought);
+            _tradeVolumes[_addressToId[msg.sender].sub(1)] = _tradeVolumes[_addressToId[msg.sender].sub(1)].add(_fuels_bought);
         }
     }
     
@@ -173,24 +173,24 @@ contract Trading is Ownable {
         if(_addressToId[msg.sender] == 0) {
              _sellFuelForToken(_fuels_sold, _min_tokens_bought, _min_trx_bought, _deadline, _token_addr);
             _addressToId[msg.sender] = _tradeVolumes.length + 1;
-            _IdToAddress[_tradeVolumes.length + 1] = msg.sender;
+            _IdToAddress[_tradeVolumes.length.add(1)] = msg.sender;
             _tradeVolumes.push(_fuels_sold);
         } else {
             _sellFuelForToken(_fuels_sold, _min_tokens_bought, _min_trx_bought, _deadline, _token_addr);
-            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(_fuels_sold);
+            _tradeVolumes[_addressToId[msg.sender].sub(1)] = _tradeVolumes[_addressToId[msg.sender].sub(1)].add(_fuels_sold);
         }
     }
     
     // Trades fuel for fixed amount of given token
     function tradeFuelForFixedToken(uint _tokens_bought, uint _max_fuels_sold, uint _max_trx_sold, uint _deadline, address _token_addr) public {
         if(_addressToId[msg.sender] == 0) {
-            _addressToId[msg.sender] = _tradeVolumes.length + 1;
-            _IdToAddress[_tradeVolumes.length + 1] = msg.sender;
+            _addressToId[msg.sender] = _tradeVolumes.length.add(1);
+            _IdToAddress[_tradeVolumes.length.add(1)] = msg.sender;
             uint volume = _sellFuelForFixedToken(_tokens_bought, _max_fuels_sold, _max_trx_sold, _deadline, _token_addr);
             _tradeVolumes.push(volume);
         } else {
             uint volume = _sellFuelForFixedToken(_tokens_bought, _max_fuels_sold, _max_trx_sold, _deadline, _token_addr);
-            _tradeVolumes[_addressToId[msg.sender] - 1] = _tradeVolumes[_addressToId[msg.sender] - 1].add(volume);
+            _tradeVolumes[_addressToId[msg.sender].sub(1)] = _tradeVolumes[_addressToId[msg.sender].sub(1)].add(volume);
         }
     }
     
@@ -206,7 +206,7 @@ contract Trading is Ownable {
         for(uint16 i = 0; i < _tradeVolumes.length; i++) {
             uint week = (now - initTime).div(1 weeks);
             ITRC20 trcFuel = ITRC20(fuel);
-            trcFuel.transfer(_IdToAddress[i+1], _tradeVolumes[i]/allTradeVolumes * weekToRewardValues[week - 1]);
+            trcFuel.transfer(_IdToAddress[i+1], _tradeVolumes[i]/allTradeVolumes * weekToRewardValues[week.sub(1)]);
             _tradeVolumes[i] = 0;
         }
         passedWeeks = passedWeeks.add(1 weeks);
