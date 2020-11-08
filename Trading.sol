@@ -34,9 +34,10 @@ contract Trading is Ownable {
     }
     
     // Returns Amount of fuel purchased
-    function _sellTrxForFuel(IJustSwapExchange _exchangeFuel, uint _min_fuels, uint _deadline) private returns (uint) {
+    function _sellTrxForFuel(uint _min_fuels, uint _deadline) private returns (uint) {
+        
         exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
-        return _exchangeFuel.trxToTokenTransferInput(_min_fuels, _deadline, msg.sender);
+        return exchangeFuel.trxToTokenTransferInput(_min_fuels, _deadline, msg.sender);
     }
     
     // Returns amount of TRX sold
@@ -60,12 +61,17 @@ contract Trading is Ownable {
   
   
     
-    // Trades fixed amount of TRX for fuel
-    function tradeTrxForFuel(uint _min_fuels, uint trx_signed, uint _deadline) public payable {
+  /**
+   * @notice Convert fixed amount of TRX to Fuel && transfers Tokens to msg.user
+   * @dev User specifies exact input (msg.value) && minimum output
+   * @param _min_fuels Minimum Tokens bought.
+   * @param _deadline Time after which this transaction can no longer be executed.
+   */
+    function tradeTrxForFuel(uint _min_fuels, uint _deadline) public payable {
         
-        require(msg.value == trx_signed, 'signed trx value is incorrect');
         exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
-        uint volume = _sellTrxForFuel(exchangeFuel, _min_fuels, _deadline);
+        
+        uint volume = _sellTrxForFuel(_min_fuels, _deadline);
         uint volumeTrx = exchangeFuel.getTrxToTokenOutputPrice(volume);
         msg.sender.transfer(msg.value.sub(volumeTrx));
         
@@ -85,10 +91,16 @@ contract Trading is Ownable {
         
     }
     
-    // Trades TRX for fixed amount of fuel
-    function tradeTrxForFixedFuel(uint _fuels_bought, uint trx_signed, uint _deadline) public payable {
+    
+    
+   /**
+   * @notice Convert TRX to Fixed Amount of Fuels && transfers to msg.sender.
+   * @dev User specifies maximum input (msg.value) && exact output.
+   * @param _fuels_bought Amount of fuels bought.
+   * @param _deadline Time after which this transaction can no longer be executed.
+   */
+    function tradeTrxForFixedFuel(uint _fuels_bought, uint _deadline) public payable {
         
-        require(msg.value == trx_signed, 'signed trx value is incorrect');
         exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
         uint volumeTrx = _sellTrxForFixedFuel(exchangeFuel, _fuels_bought, _deadline);
         msg.sender.transfer(msg.value.sub(volumeTrx));
@@ -109,9 +121,19 @@ contract Trading is Ownable {
         
     }
     
-    // Trades fixed amount of fuel for TRX
+    
+    
+    /**
+   * @notice Convert Fixed Amount of Fuels to TRX && transfer TRX to msg.sender.
+   * @dev User specifies exact input && minimum output.
+   * @param _fuels_sold Amount of Tokens sold.
+   * @param _min_trx Minimum TRX purchased.
+   * @param _deadline Time after which this transaction can no longer be executed.
+   */
     function tradeFuelForTrx(uint _fuels_sold, uint _min_trx, uint _deadline) public  {
         
+        require(ITRC20(fuel).balanceOf(msg.sender) >= _fuels_sold);
+        ITRC20(fuel).approve(address(this), _fuels_sold);
         ITRC20(fuel).transferFrom(msg.sender, address(this), _fuels_sold);
         exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
         uint volumeTrx = _sellFuelForTrx(_fuels_sold, _min_trx, _deadline);
@@ -135,9 +157,19 @@ contract Trading is Ownable {
         
     }
 
-    // Trades fuel for fixed amount of TRX
+
+    
+  /**
+   * @notice Convert Tokens to Fixed TRX && transfers TRX to msg.sender
+   * @dev User specifies maximum input && exact output.
+   * @param _trx_bought Amount of TRX purchased.
+   * @param _max_fuels Maximum Fuels sold.
+   * @param _deadline Time after which this transaction can no longer be executed.
+   */
     function tradeFuelForFixedTrx(uint _trx_bought, uint _max_fuels, uint _deadline) public  {
         
+        require(ITRC20(fuel).balanceOf(msg.sender) >= _max_fuels);
+        ITRC20(fuel).approve(address(this), _max_fuels);
         ITRC20(fuel).transferFrom(msg.sender, address(this),_max_fuels);
         uint volume = _sellFuelForFixedTrx(_trx_bought, _max_fuels, _deadline);
         ITRC20(fuel).transferFrom(address(this), msg.sender, _max_fuels.sub(volume));
@@ -186,9 +218,20 @@ contract Trading is Ownable {
     }
     
     
-    // Trades a fixed amount of given token for fuel
+    /**
+   * @notice Convert Fuels to Tokens (token_addr) && transfers
+   *         Tokens (token_addr) to recipient.
+   * @dev User specifies exact input && minimum output.
+   * @param _tokens_sold Amount of Tokens sold.
+   * @param _min_fuels_bought Minimum Tokens (token_addr) purchased.
+   * @param _min_trx_bought Minimum TRX purchased as intermediary.
+   * @param _deadline Time after which this transaction can no longer be executed.
+   * @param _token_addr The address of the token being purchased.
+   */
     function tradeTokenForFuel(uint _tokens_sold, uint _min_fuels_bought, uint _min_trx_bought, uint _deadline, address _token_addr) public {
         
+        require(ITRC20(_token_addr).balanceOf(msg.sender) >= _tokens_sold);
+        ITRC20(_token_addr).approve(address(this), _tokens_sold);
         ITRC20(_token_addr).transferFrom(msg.sender, address(this), _tokens_sold);
         uint volume = _sellTokenForFuel(_tokens_sold, _min_fuels_bought, _min_trx_bought, _deadline, _token_addr);
         if(volume < _min_fuels_bought) {
@@ -211,9 +254,21 @@ contract Trading is Ownable {
         
     }
     
-    // Trades a given token for fixed amount of fuel
+    
+    /**
+   * @notice Convert Tokens (token) to Tokens (token_addr) && transfers
+   *         Tokens (token_addr) to recipient.
+   * @dev User specifies maximum input && exact output.
+   * @param _fuels_bought Amount of Tokens (token_addr) bought.
+   * @param _max_tokens_sold Maximum Tokens (token) sold.
+   * @param _max_trx_sold Maximum TRX purchased as intermediary.
+   * @param _deadline Time after which this transaction can no longer be executed.
+   * @param _token_addr The address of the token being purchased.
+   */
     function tradeTokenForFixedFuel(uint _fuels_bought, uint _max_tokens_sold, uint _max_trx_sold, uint _deadline, address _token_addr) public {
         
+        require(ITRC20(_token_addr).balanceOf(msg.sender) >= _max_tokens_sold);
+        ITRC20(_max_tokens_sold).approve(address(this), _max_tokens_sold);
         ITRC20(_token_addr).transferFrom(msg.sender, address(this), _max_tokens_sold);
         uint volumeToken = _sellTokenForFixedFuel(_fuels_bought, _max_tokens_sold, _max_trx_sold, _deadline, _token_addr);
         ITRC20(_token_addr).transferFrom(msg.sender, address(this), _max_tokens_sold.sub(volumeToken));
@@ -233,9 +288,21 @@ contract Trading is Ownable {
         
     }
     
-    // Trades fixed amount of fuel for a given token
+    
+    /**
+   * @notice Convert Fuels to Tokens (token_addr) && transfers
+   *         Tokens (token_addr) to recipient.
+   * @dev User specifies exact input && minimum output.
+   * @param _fuels_sold Amount of Tokens sold.
+   * @param _min_tokens_bought Minimum Tokens (token_addr) purchased.
+   * @param _min_trx_bought Minimum TRX purchased as intermediary.
+   * @param _deadline Time after which this transaction can no longer be executed.
+   * @param _token_addr The address of the token being purchased.
+   */
     function tradeFuelForToken(uint _fuels_sold, uint _min_tokens_bought, uint _min_trx_bought, uint _deadline, address _token_addr) public {
         
+        require(ITRC20(fuel).balanceOf(msg.sender) >= _fuels_sold);
+        ITRC20(fuel).approve(address(this), _fuels_sold);
         ITRC20(fuel).transferFrom(msg.sender, address(this), _fuels_sold);
         uint volumeToken = _sellFuelForToken(_fuels_sold, _min_tokens_bought, _min_trx_bought, _deadline, _token_addr);
         if(volumeToken < _min_tokens_bought) {
@@ -257,8 +324,20 @@ contract Trading is Ownable {
         
     }
     
-    // Trades fuel for fixed amount of given token
+    /**
+   * @notice Convert Tokens (token) to Tokens (token_addr) && transfers
+   *         Tokens (token_addr) to recipient.
+   * @dev User specifies maximum input && exact output.
+   * @param _tokens_bought Amount of Tokens (token_addr) bought.
+   * @param _max_fuels_sold Maximum Tokens (token) sold.
+   * @param _max_trx_sold Maximum TRX purchased as intermediary.
+   * @param _deadline Time after which this transaction can no longer be executed.
+   * @param _token_addr The address of the token being purchased.
+   */
     function tradeFuelForFixedToken(uint _tokens_bought, uint _max_fuels_sold, uint _max_trx_sold, uint _deadline, address _token_addr) public {
+        
+        require(ITRC20(fuel).balanceOf(msg.sender) >= _max_fuels_sold);
+        ITRC20(fuel).approve(address(this), _max_fuels_sold);
         ITRC20(fuel).transferFrom(msg.sender, address(this), _max_fuels_sold);
         uint volume = _sellFuelForFixedToken(_tokens_bought, _max_fuels_sold, _max_trx_sold, _deadline, _token_addr);
         ITRC20(fuel).transferFrom(address(this), msg.sender, _max_fuels_sold.sub(volume));
