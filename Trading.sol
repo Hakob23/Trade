@@ -161,7 +161,6 @@ contract Trading is Ownable {
         }
         
         uint volumeTrx = _sellFuelForTrx(_fuels_sold, _min_trx, _deadline);
-        emit TrxPurchase(msg.sender, _fuels_sold, volumeTrx);
         
         if(volumeTrx < _min_trx){
             ITRC20(fuel).transferFrom(address(this), msg.sender, _fuels_sold);
