@@ -19,7 +19,6 @@ contract Trading is Ownable {
     
     event                        TokenPurchase(address indexed buyer, uint256 indexed trx_sold, uint256 indexed tokens_bought);
     event                        TrxPurchase(address indexed buyer, uint256 indexed tokens_sold, uint256 indexed trx_bought);
-    event                        Transfer(address indexed from, address indexed to, uint256 value);
     event                        Approval(address indexed owner, address indexed spender, uint256 value);
 
     
@@ -34,11 +33,30 @@ contract Trading is Ownable {
     uint                         public lastTraderId;    
 
     
-    constructor(address _fuel, uint timer) public {
-        factory = IJustSwapFactory(msg.sender);
+    constructor(address _fuel, address _factory, uint _timer) public {
+        require(_fuel != address(0), 'Invalid address!');
+        require(_factory != address(0), 'Invalid address!');
+        factory = IJustSwapFactory(_factory);
         fuel = _fuel;
-        initTime = now.add(timer);
+        initTime = now.add(_timer);
     }
+    
+    
+    
+     // Adds the volume of traded assets in fuels to the correspondent trader's index
+    function _addTradingValue(uint _volume) private {
+      if(addressToId[msg.sender] == 0) {
+                lastTraderId = tradeVolumes.length.add(1);
+                addressToId[msg.sender] = lastTraderId;
+                IdToAddress[lastTraderId] = msg.sender;
+                tradeVolumes.push(_volume);
+        } else {
+                uint traderId = addressToId[msg.sender].sub(1);
+                tradeVolumes[traderId] = tradeVolumes[traderId].add(_volume);
+        }
+    }
+    
+    
     
     // Returns Amount of fuel purchased
     function _sellTrxForFuel(uint _min_fuels, uint _deadline) private returns (uint) {
@@ -59,7 +77,7 @@ contract Trading is Ownable {
     function _sellFuelForFixedTrx(uint _trx_bought, uint _max_fuels, uint _deadline) private returns (uint) {
         return exchangeFuel.tokenToTrxTransferOutput(_trx_bought, _max_fuels, _deadline, msg.sender);
     }
-  
+ 
   
   
     
@@ -74,28 +92,17 @@ contract Trading is Ownable {
         require(msg.value > 0, 'Trx is not assigned');
         
         if(exchangeFuel == IJustSwapExchange(address(0)))  {
-            exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
+            exchangeFuel = IJustSwapExchange(factory.getExchange(fuel));
         }
-        
         
         uint volume = _sellTrxForFuel(_min_fuels, _deadline);
         uint volumeTrx = exchangeFuel.getTrxToTokenOutputPrice(volume);
-        
         
         msg.sender.transfer(msg.value.sub(volumeTrx));
         
         if(volume > 0) {
             emit TokenPurchase(msg.sender, volumeTrx, volume);
-            
-            if(addressToId[msg.sender] == 0) {
-                lastTraderId = tradeVolumes.length.add(1);
-                addressToId[msg.sender] = lastTraderId;
-                IdToAddress[lastTraderId] = msg.sender;
-                tradeVolumes.push(volume);
-            } else {
-                uint traderId = addressToId[msg.sender].sub(1);
-                tradeVolumes[traderId] = tradeVolumes[traderId].add(volume);
-            }
+            _addTradingValue(volume);
         }
         
         
@@ -114,28 +121,17 @@ contract Trading is Ownable {
         require(msg.value > 0, 'Trx is not assigned');
         
         if(exchangeFuel == IJustSwapExchange(address(0)))  {
-            exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
+            exchangeFuel = IJustSwapExchange(factory.getExchange(fuel));
         }
         
         uint volumeTrx = _sellTrxForFixedFuel(_fuels_bought, _deadline);
-        
         
         msg.sender.transfer(msg.value.sub(volumeTrx));
         
         if(volumeTrx > 0) {
             emit TokenPurchase(msg.sender, volumeTrx, _fuels_bought);
-            
-            if(addressToId[msg.sender] == 0) {
-                lastTraderId = tradeVolumes.length.add(1);
-                addressToId[msg.sender] = lastTraderId;
-                IdToAddress[lastTraderId] = msg.sender;
-                tradeVolumes.push(_fuels_bought);
-            } else {
-                lastTraderId = addressToId[msg.sender].sub(1);
-                tradeVolumes[lastTraderId] = tradeVolumes[lastTraderId].add(_fuels_bought);
-            }
+            _addTradingValue(_fuels_bought);
         }
-        
         
     }
     
@@ -152,34 +148,23 @@ contract Trading is Ownable {
         
         require(ITRC20(fuel).balanceOf(msg.sender) >= _fuels_sold, 'Not sufficient fuel balance!');
         ITRC20(fuel).approve(address(this), _fuels_sold);
+        emit Approval(msg.sender, address(this), _fuels_sold);
+        
+        require(ITRC20(fuel).allowance(msg.sender, address(this)) >= _fuels_sold, 'Not enough approved fuels!');
         ITRC20(fuel).transferFrom(msg.sender, address(this), _fuels_sold);
 
-        require(ITRC20(fuel).allowance(msg.sender, address(this)) >= _fuels_sold, 'Not enough approved fuels!');
-        
         if(exchangeFuel == IJustSwapExchange(address(0)))  {
-            exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
+            exchangeFuel = IJustSwapExchange(factory.getExchange(fuel));
         }
         
         uint volumeTrx = _sellFuelForTrx(_fuels_sold, _min_trx, _deadline);
-        
-        if(volumeTrx < _min_trx){
+
+        if(volumeTrx < _min_trx) {
             ITRC20(fuel).transferFrom(address(this), msg.sender, _fuels_sold);
-        } 
-        
-        if(volumeTrx >= _min_trx) {
+        } else {
             emit TrxPurchase(msg.sender, _fuels_sold, volumeTrx);
-            
-            if(addressToId[msg.sender] == 0) {
-                lastTraderId = tradeVolumes.length.add(1);
-                addressToId[msg.sender] = lastTraderId;
-                IdToAddress[lastTraderId] = msg.sender;
-                tradeVolumes.push(_fuels_sold);
-            } else {
-                uint traderId = addressToId[msg.sender].sub(1);
-                tradeVolumes[traderId] = tradeVolumes[traderId].add(_fuels_sold);
-            }
+            _addTradingValue(_fuels_sold);
         }
-        
         
     }
 
@@ -192,37 +177,26 @@ contract Trading is Ownable {
    * @param _max_fuels Maximum Fuels sold.
    * @param _deadline Time after which this transaction can no longer be executed.
    */
-    function tradeFuelForFixedTrx(uint _trx_bought, uint _max_fuels, uint _deadline) public  {
+    function tradeFuelForFixedTrx(uint _trx_bought, uint _max_fuels, uint _deadline) public {
         
         require(ITRC20(fuel).balanceOf(msg.sender) >= _max_fuels, 'Not sufficient fuel balance!'); 
         ITRC20(fuel).approve(address(this), _max_fuels);
-        ITRC20(fuel).transferFrom(msg.sender, address(this),_max_fuels);
+        emit Approval(msg.sender, address(this), _max_fuels);
         
         require(ITRC20(fuel).allowance(msg.sender, address(this)) >= _max_fuels, 'Not enough approved fuels!');
+        ITRC20(fuel).transferFrom(msg.sender, address(this),_max_fuels);
         
         if(exchangeFuel == IJustSwapExchange(address(0)))  {
-            exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
+            exchangeFuel = IJustSwapExchange(factory.getExchange(fuel));
         }
         
         uint volume = _sellFuelForFixedTrx(_trx_bought, _max_fuels, _deadline);
-        
-        
         ITRC20(fuel).transferFrom(address(this), msg.sender, _max_fuels.sub(volume));
         
         if(volume > 0) {
             emit TrxPurchase(msg.sender, volume, _trx_bought);
-            
-            if(addressToId[msg.sender] == 0) {
-                lastTraderId = tradeVolumes.length.add(1);
-                addressToId[msg.sender] = lastTraderId;
-                IdToAddress[lastTraderId] = msg.sender;
-                tradeVolumes.push(volume);
-            } else {
-                uint traderId = addressToId[msg.sender].sub(1);
-                tradeVolumes[traderId] = tradeVolumes[traderId].add(volume);
-            }
+            _addTradingValue(volume);
         }
-        
     
     }
     
@@ -231,13 +205,13 @@ contract Trading is Ownable {
    
     // Returns amount of fuel purchased
     function _sellTokenForFuel(uint _tokens_sold, uint _min_fuels_bought, uint _min_trx_bought, uint _deadline, address _token_addr) private returns (uint) {
-        IJustSwapExchange exchangeToken = IJustSwapExchange(factory.createExchange(_token_addr));
+        IJustSwapExchange exchangeToken = IJustSwapExchange(factory.getExchange(_token_addr));
         return exchangeToken.tokenToTokenTransferInput(_tokens_sold, _min_fuels_bought, _min_trx_bought, _deadline, msg.sender, fuel);
     }
     
     // Returns amount of token sold
     function _sellTokenForFixedFuel(uint _fuels_bought, uint _max_tokens_sold, uint _max_trx_sold, uint _deadline, address _token_addr) private returns (uint) {
-        IJustSwapExchange exchangeToken = IJustSwapExchange(factory.createExchange(_token_addr));
+        IJustSwapExchange exchangeToken = IJustSwapExchange(factory.getExchange(_token_addr));
         return exchangeToken.tokenToTokenTransferOutput(_fuels_bought, _max_tokens_sold, _max_trx_sold, _deadline, msg.sender, fuel);
     }
     
@@ -254,7 +228,7 @@ contract Trading is Ownable {
     
     /**
    * @notice Convert Fuels to Tokens (token_addr) && transfers
-   *         Tokens (token_addr) to recipient.
+   *         Tokens (token_addr) to msg.sender.
    * @dev User specifies exact input && minimum output.
    * @param _tokens_sold Amount of Tokens sold.
    * @param _min_fuels_bought Minimum Tokens (token_addr) purchased.
@@ -266,30 +240,20 @@ contract Trading is Ownable {
         
         require(ITRC20(_token_addr).balanceOf(msg.sender) >= _tokens_sold, 'Not sufficient token balance!');
         ITRC20(_token_addr).approve(address(this), _tokens_sold);
-        ITRC20(_token_addr).transferFrom(msg.sender, address(this), _tokens_sold);
+        emit Approval(msg.sender, address(this), _tokens_sold);
         
         require(ITRC20(_token_addr).allowance(msg.sender, address(this)) >= _tokens_sold, 'Not enough approved tokens!');
-        IJustSwapExchange exchangeToken = IJustSwapExchange(factory.createExchange(_token_addr));
+        ITRC20(_token_addr).transferFrom(msg.sender, address(this), _tokens_sold);
+        
+        IJustSwapExchange exchangeToken = IJustSwapExchange(factory.getExchange(_token_addr));
         uint volume = _sellTokenForFuel(_tokens_sold, _min_fuels_bought, _min_trx_bought, _deadline, _token_addr);
         uint volumeTrx = exchangeToken.getTrxToTokenOutputPrice(volume);
         
-        
         if(volume < _min_fuels_bought) {
             ITRC20(_token_addr).transferFrom(address(this), msg.sender, _tokens_sold);
-        }
-        
-        if(volume > 0) {
+        } else {
             emit TokenPurchase(msg.sender, volumeTrx, volume);
-            
-            if(addressToId[msg.sender] == 0) {
-                lastTraderId =  tradeVolumes.length.add(1);
-                addressToId[msg.sender] = lastTraderId;
-                IdToAddress[lastTraderId] = msg.sender;
-                tradeVolumes.push(volume);
-            } else {
-                uint traderId = addressToId[msg.sender].sub(1);
-                tradeVolumes[traderId] = tradeVolumes[traderId].add(volume);
-            }
+            _addTradingValue(volume);
         }
         
         
@@ -310,29 +274,20 @@ contract Trading is Ownable {
         
         require(ITRC20(_token_addr).balanceOf(msg.sender) >= _max_tokens_sold, 'Not sufficient token balance!');
         ITRC20(_max_tokens_sold).approve(address(this), _max_tokens_sold);
-        ITRC20(_token_addr).transferFrom(msg.sender, address(this), _max_tokens_sold);
+        emit Approval(msg.sender, address(this), _max_tokens_sold);
         
         require(ITRC20(_token_addr).allowance(msg.sender, address(this)) >= _max_tokens_sold, 'Not enough approved tokens!');
+        ITRC20(_token_addr).transferFrom(msg.sender, address(this), _max_tokens_sold);
         
         uint volumeToken = _sellTokenForFixedFuel(_fuels_bought, _max_tokens_sold, _max_trx_sold, _deadline, _token_addr);
-        IJustSwapExchange exchangeToken = IJustSwapExchange(factory.createExchange(_token_addr));
+        IJustSwapExchange exchangeToken = IJustSwapExchange(factory.getExchange(_token_addr));
         uint volumeTrx = exchangeToken.getTrxToTokenOutputPrice(volumeToken);
-        
         
         ITRC20(_token_addr).transferFrom(msg.sender, address(this), _max_tokens_sold.sub(volumeToken));
         
         if(volumeToken > 0) {
             emit TokenPurchase(msg.sender, volumeTrx, _fuels_bought);
-            
-            if(addressToId[msg.sender] == 0) {
-                lastTraderId = tradeVolumes.length.add(1);
-                addressToId[msg.sender] = lastTraderId;
-                IdToAddress[lastTraderId] = msg.sender;
-                tradeVolumes.push(_fuels_bought);
-            } else {
-                uint traderId = addressToId[msg.sender].sub(1);
-                tradeVolumes[traderId] = tradeVolumes[traderId].add(_fuels_bought);
-            }
+            _addTradingValue(_fuels_bought);
         }
         
     }
@@ -352,11 +307,13 @@ contract Trading is Ownable {
         
         require(ITRC20(fuel).balanceOf(msg.sender) >= _fuels_sold, 'Not sufficient fuel balance!');
         ITRC20(fuel).approve(address(this), _fuels_sold);
-        ITRC20(fuel).transferFrom(msg.sender, address(this), _fuels_sold);
+        emit Approval(msg.sender, address(this), _fuels_sold);
+        
         require(ITRC20(fuel).allowance(msg.sender, address(this)) >= _fuels_sold, 'Not enough approved fuels!');
+        ITRC20(fuel).transferFrom(msg.sender, address(this), _fuels_sold);
         
         if(exchangeFuel == IJustSwapExchange(address(0)))  {
-            exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
+            exchangeFuel = IJustSwapExchange(factory.getExchange(fuel));
         }
         
         uint volumeToken = _sellFuelForToken(_fuels_sold, _min_tokens_bought, _min_trx_bought, _deadline, _token_addr);
@@ -365,20 +322,9 @@ contract Trading is Ownable {
         
         if(volumeToken < _min_tokens_bought) {
             ITRC20(fuel).transferFrom(address(this), msg.sender, _fuels_sold);
-        }
-        
-        if(volumeToken >= _min_tokens_bought) {
+        } else {
             emit TokenPurchase(msg.sender, volumeTrx, volumeToken);
-            
-            if(addressToId[msg.sender] == 0) {
-                lastTraderId = tradeVolumes.length.add(1);
-                addressToId[msg.sender] = lastTraderId;
-                IdToAddress[lastTraderId] = msg.sender;
-                tradeVolumes.push(_fuels_sold);
-            } else {
-                uint traderId = addressToId[msg.sender].sub(1);
-                tradeVolumes[traderId] = tradeVolumes[traderId].add(_fuels_sold);
-            }
+            _addTradingValue(_fuels_sold);
         }
         
     }
@@ -397,11 +343,13 @@ contract Trading is Ownable {
         
         require(ITRC20(fuel).balanceOf(msg.sender) >= _max_fuels_sold, 'Not sufficient fuel balance!');
         ITRC20(fuel).approve(address(this), _max_fuels_sold);
-        ITRC20(fuel).transferFrom(msg.sender, address(this), _max_fuels_sold);
+        emit Approval(msg.sender, address(this), _max_fuels_sold);
+        
         require(ITRC20(fuel).allowance(msg.sender, address(this)) >= _max_fuels_sold, 'Not enough approved fuels!');
+        ITRC20(fuel).transferFrom(msg.sender, address(this), _max_fuels_sold);
         
         if(exchangeFuel == IJustSwapExchange(address(0)))  {
-            exchangeFuel = IJustSwapExchange(factory.createExchange(fuel));
+            exchangeFuel = IJustSwapExchange(factory.getExchange(fuel));
         }
         
         uint volume = _sellFuelForFixedToken(_tokens_bought, _max_fuels_sold, _max_trx_sold, _deadline, _token_addr);
@@ -411,33 +359,26 @@ contract Trading is Ownable {
         
         if(volume > 0) {
             emit TokenPurchase(msg.sender, volumeTrx, _tokens_bought);
-            
-            if(addressToId[msg.sender] == 0) {
-                lastTraderId = tradeVolumes.length.add(1);
-                addressToId[msg.sender] = lastTraderId;
-                IdToAddress[lastTraderId] = msg.sender;
-                tradeVolumes.push(volume);
-            } else {
-                uint traderId = addressToId[msg.sender].sub(1);
-                tradeVolumes[traderId] = tradeVolumes[traderId].add(volume);
-            }
+            _addTradingValue(volume);
         }
         
     }
     
     
-    // Send rewards and nulling the trade volumes after the reward distribution
+    // Sending rewards and nulling the trade volumes after the reward distribution
     function sendRewards() public {
-        require(now.sub(initTime) >= passedWeeks, 'A week did not pass, since the last reward time!');
-        require(now.sub(initTime) < 11 weeks, 'Reawrding time has already ended!');
+        require(now.sub(initTime) >= passedWeeks, 'A week did not pass since the last reward time!');
+        require(now.sub(initTime) < 11 weeks, 'Rewarding time has already ended!');
+        
         uint allTradeVolumes = 0;
-        for(uint16 i = 0; i < tradeVolumes.length; i++) {
+        
+        for(uint i = 0; i < tradeVolumes.length; i++) {
             allTradeVolumes = allTradeVolumes.add(tradeVolumes[i]);
         }
-        for(uint16 i = 0; i < tradeVolumes.length; i++) {
+        
+        for(uint i = 0; i < tradeVolumes.length; i++) {
             uint week = (now.sub(initTime)).div(1 weeks);
-            ITRC20 trcFuel = ITRC20(fuel);
-            trcFuel.transfer(IdToAddress[i+1], tradeVolumes[i].div(allTradeVolumes).mul(weekToRewardValues[week.sub(1)]));
+            ITRC20(fuel).transfer(IdToAddress[i.add(1)], tradeVolumes[i].div(allTradeVolumes).mul(weekToRewardValues[week.sub(1)]));
             tradeVolumes[i] = 0;
         }
         passedWeeks = passedWeeks.add(1 weeks);
