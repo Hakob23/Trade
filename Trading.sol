@@ -3,7 +3,6 @@ pragma solidity 0.6.12;
 
 import "./Ownable.sol";
 import "./IJustSwapExchange.sol";
-import "./IJustSwapFactory.sol";
 import "./TRC20.sol";
 import "./safemath.sol";
 
