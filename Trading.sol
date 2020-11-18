@@ -30,11 +30,11 @@ contract Trading is Ownable {
     mapping(uint  => address)    public  IdToAddress;
     uint[]                       public  tradeVolumes;
     uint                         public  lastTraderId;    
-
     
-    constructor(address payable _pairAddress, address _fuel, uint _timer) public {
+    constructor(address _fuel, uint _timer) public {
         require(_fuel != address(0), 'Invalid address!');
-        exchangeFuel = IJustSwapExchange(_pairAddress);
+        fuel = _fuel;
+        exchangeFuel = IJustSwapExchange(fuel);
         initTime = now.add(_timer);
     }
     
